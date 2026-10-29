@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daily Grind</title>
+<meta name="theme-color" content="#2550c4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Grind">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+/* Layout: one phone-first column. Today's queue on top, stats below, settings last. */
+:root{
+  color-scheme:light;
+  --bg:#eef1f5; --surface:#ffffff; --ink:#152033; --muted:#5a6679; --line:#d9dfe8;
+  --accent:#2550c4; --accent-ink:#ffffff; --accent-soft:#e2e9fb;
+  --good:#17784a; --good-soft:#dff3e8; --warn:#9a5a00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe3e1;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f131a; --surface:#171d27; --ink:#e5e9f0; --muted:#98a3b6; --line:#2a3242;
+  --accent:#7b9bf2; --accent-ink:#0f131a; --accent-soft:#1f2a45;
+  --good:#5cc690; --good-soft:#163325; --warn:#e8a94e; --warn-soft:#3a2a12; --bad:#f08077; --bad-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131a; --surface:#171d27; --ink:#e5e9f0; --muted:#98a3b6; --line:#2a3242;
+  --accent:#7b9bf2; --accent-ink:#0f131a; --accent-soft:#1f2a45;
+  --good:#5cc690; --good-soft:#163325; --warn:#e8a94e; --warn-soft:#3a2a12; --bad:#f08077; --bad-soft:#3d1c1a; color-scheme:dark}
+html{-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;display:grid;gap:22px}
+h1{font-size:1.5rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px;font-weight:600}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.head{display:grid;gap:12px}
+.headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.date{color:var(--muted);font-size:.9rem}
+.sync{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.on i{background:var(--good)} .sync.err i{background:var(--bad)}
+.summary{display:flex;gap:10px;flex-wrap:wrap}
+.pill{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:grid;min-width:0;flex:1 1 120px}
+.pill b{font-family:var(--mono);font-size:1.25rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.pill span{font-size:.75rem;color:var(--muted)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar>div{height:100%;background:var(--accent);transition:width .3s}
+
+/* banner */
+.banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:14px 16px;display:grid;gap:10px}
+.banner p{margin:0}
+.banner ul{margin:0;padding-left:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:.88rem;font-weight:500;text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.good{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.btn.warn{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.btn.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* queue */
+.queue{display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:12px;min-width:0}
+.card.live{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ctop{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:999px;letter-spacing:.02em}
+.chip.new{background:var(--accent-soft);color:var(--accent)}
+.chip.rev{background:var(--warn-soft);color:var(--warn)}
+.timer{font-family:var(--mono);font-size:.95rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.card.live .timer{color:var(--accent);font-weight:600}
+.title{font-size:1.1rem;font-weight:600;color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.title:hover{text-decoration:underline}
+.title .num{font-family:var(--mono);color:var(--muted);font-weight:500;margin-right:6px}
+.patline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.88rem}
+.hidden-pat{color:var(--muted);font-style:italic}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font-size:.85rem;text-decoration:underline}
+.guess{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
+.guess select{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:.92rem;max-width:100%}
+.rate{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rate .btn{justify-content:center;text-align:center;padding:10px 6px;font-size:.84rem}
+.hint{font-size:.8rem;color:var(--muted);margin:0}
+
+.donelist{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.done{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.done:first-child{border-top:0}
+.done .t{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+.res{font-size:.72rem;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.res.cold{background:var(--good-soft);color:var(--good)}
+.res.hint{background:var(--warn-soft);color:var(--warn)}
+.res.fail{background:var(--bad-soft);color:var(--bad)}
+.ok{color:var(--good)} .no{color:var(--bad)}
+.alldone{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:16px;display:grid;gap:10px}
+.alldone p{margin:0}
+
+/* stats */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:12px}
+.pats{display:grid;gap:8px}
+.pat{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:.85rem}
+.pat .stack{grid-column:1/-1;height:8px;background:var(--line);border-radius:4px;overflow:hidden;display:flex}
+.stack .m{background:var(--good)} .stack .l{background:var(--warn)}
+.legend{display:flex;gap:14px;font-size:.75rem;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.fc{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:92px}
+.fc div{display:grid;gap:4px;justify-items:center;align-self:end}
+.fc .b{width:100%;max-width:34px;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+.fc .b.zero{background:var(--line)}
+.fc small{font-size:.7rem;color:var(--muted)}
+.fc .v{font-family:var(--mono);font-size:.75rem}
+.recent{display:grid;gap:0}
+.rec{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:.86rem;flex-wrap:wrap}
+.rec:first-child{border-top:0}
+.rec .t{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+summary{cursor:pointer;font-weight:600;font-size:.92rem}
+details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9rem}
+.settings{display:grid;gap:14px}
+.field{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.field input{width:5em;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:.88rem;z-index:20;max-width:calc(100% - 32px)}
+@media (max-width:420px){.rate{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.bar>div{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="head">
+    <div class="headrow">
+      <div>
+        <h1>LeetCode Daily Grind</h1>
+        <div class="date" id="date"></div>
+      </div>
+      <div class="sync on" id="sync"><i></i><span>Saved on this device</span></div>
+    </div>
+    <div class="summary">
+      <div class="pill"><b id="sToday">0/5</b><span>done today</span></div>
+      <div class="pill"><b id="sStreak">0</b><span>day streak</span></div>
+      <div class="pill"><b id="sMast">0/80</b><span>locked in</span></div>
+      <div class="pill"><b id="sRec">–</b><span>pattern calls right</span></div>
+    </div>
+    <div class="bar"><div id="todayBar" style="width:0"></div></div>
+  </header>
+
+  <div id="banner"></div>
+
+  <section>
+    <h2>Today's problems</h2>
+    <div class="queue" id="queue"></div>
+  </section>
+
+  <section id="doneSec" hidden>
+    <h2>Finished today</h2>
+    <div class="donelist" id="doneList"></div>
+  </section>
+
+  <section class="row">
+    <button class="btn" id="moreNew" type="button">+ New problem</button>
+    <button class="btn" id="moreRev" type="button">+ Random review</button>
+  </section>
+
+  <section class="panel">
+    <h2>Reviews coming up</h2>
+    <div class="fc" id="forecast"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Patterns</h2>
+    <div class="legend"><span><i style="background:var(--good)"></i>Locked in</span><span><i style="background:var(--warn)"></i>Still learning</span><span><i style="background:var(--line)"></i>Not started</span></div>
+    <div class="pats" id="pats"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Recent attempts</h2>
+    <div class="recent" id="recent"></div>
+  </section>
+
+  <details>
+    <summary>How this works</summary>
+    <ul>
+      <li>Each day you get your due reviews first, then new problems up to your daily goal.</li>
+      <li>The pattern is hidden. Pick what you think it is before you code. That's the skill interviews test.</li>
+      <li><b>Solved cold</b> means no hints and no peeking. It comes back in 3, then 7, then 14 days. Three cold solves in a row and it counts as locked in.</li>
+      <li><b>Needed hints</b> comes back in 2 days. <b>Couldn't solve</b> comes back tomorrow and resets.</li>
+      <li>Be honest with the buttons. Rating a peek as "cold" only fools you.</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Settings</summary>
+    <div class="settings">
+      <div class="field">
+        <label for="goal">Problems per day</label>
+        <input id="goal" type="number" min="1" max="20" inputmode="numeric">
+        <span class="muted" id="goalNote" style="font-size:.82rem"></span>
+      </div>
+      <div class="row">
+        <button class="btn" id="exp" type="button">Export backup</button>
+        <button class="btn" id="imp" type="button">Import backup</button>
+        <input type="file" id="impFile" accept="application/json,.json" hidden>
+      </div>
+      <p class="hint">Progress lives on this device. Export a backup to move it to another phone or laptop.</p>
+      <div class="row">
+        <button class="btn bad" id="reset" type="button">Reset all progress</button>
+        <span id="resetConfirm" hidden class="row"><span style="font-size:.88rem">This erases everything.</span><button class="btn bad" id="resetYes" type="button">Yes, erase</button><button class="btn ghost" id="resetNo" type="button">Cancel</button></span>
+      </div>
+    </div>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ---------- problem bank ----------
+const BANK=[
+ ["Arrays & Hashing",[[1,"Two Sum","two-sum","E",1],[217,"Contains Duplicate","contains-duplicate","E"],[242,"Valid Anagram","valid-anagram","E"],[49,"Group Anagrams","group-anagrams","M",1],[347,"Top K Frequent Elements","top-k-frequent-elements","M",1],[238,"Product of Array Except Self","product-of-array-except-self","M",1],[36,"Valid Sudoku","valid-sudoku","M"],[128,"Longest Consecutive Sequence","longest-consecutive-sequence","M",1],[560,"Subarray Sum Equals K","subarray-sum-equals-k","M"]]],
+ ["Two Pointers",[[125,"Valid Palindrome","valid-palindrome","E",1],[167,"Two Sum II","two-sum-ii-input-array-is-sorted","M"],[15,"3Sum","3sum","M",1],[11,"Container With Most Water","container-with-most-water","M",1],[75,"Sort Colors","sort-colors","M"]]],
+ ["Sliding Window",[[121,"Best Time to Buy and Sell Stock","best-time-to-buy-and-sell-stock","E",1],[3,"Longest Substring Without Repeating Characters","longest-substring-without-repeating-characters","M",1],[424,"Longest Repeating Character Replacement","longest-repeating-character-replacement","M",1],[567,"Permutation in String","permutation-in-string","M"],[76,"Minimum Window Substring","minimum-window-substring","H"]]],
+ ["Stack",[[20,"Valid Parentheses","valid-parentheses","E",1],[155,"Min Stack","min-stack","M"],[150,"Evaluate Reverse Polish Notation","evaluate-reverse-polish-notation","M"],[739,"Daily Temperatures","daily-temperatures","M",1],[22,"Generate Parentheses","generate-parentheses","M"]]],
+ ["Binary Search",[[704,"Binary Search","binary-search","E",1],[74,"Search a 2D Matrix","search-a-2d-matrix","M"],[875,"Koko Eating Bananas","koko-eating-bananas","M"],[153,"Find Minimum in Rotated Sorted Array","find-minimum-in-rotated-sorted-array","M",1],[33,"Search in Rotated Sorted Array","search-in-rotated-sorted-array","M",1],[981,"Time Based Key-Value Store","time-based-key-value-store","M"]]],
+ ["Linked List",[[206,"Reverse Linked List","reverse-linked-list","E",1],[21,"Merge Two Sorted Lists","merge-two-sorted-lists","E",1],[141,"Linked List Cycle","linked-list-cycle","E",1],[143,"Reorder List","reorder-list","M"],[19,"Remove Nth Node From End of List","remove-nth-node-from-end-of-list","M"],[138,"Copy List with Random Pointer","copy-list-with-random-pointer","M"],[2,"Add Two Numbers","add-two-numbers","M"],[146,"LRU Cache","lru-cache","M",1]]],
+ ["Trees",[[226,"Invert Binary Tree","invert-binary-tree","E",1],[104,"Maximum Depth of Binary Tree","maximum-depth-of-binary-tree","E",1],[543,"Diameter of Binary Tree","diameter-of-binary-tree","E"],[100,"Same Tree","same-tree","E"],[102,"Binary Tree Level Order Traversal","binary-tree-level-order-traversal","M",1],[199,"Binary Tree Right Side View","binary-tree-right-side-view","M"],[98,"Validate Binary Search Tree","validate-binary-search-tree","M",1],[235,"Lowest Common Ancestor of a BST","lowest-common-ancestor-of-a-binary-search-tree","M"],[230,"Kth Smallest Element in a BST","kth-smallest-element-in-a-bst","M"],[105,"Construct Binary Tree from Preorder and Inorder","construct-binary-tree-from-preorder-and-inorder-traversal","M"]]],
+ ["Heap / Priority Queue",[[703,"Kth Largest Element in a Stream","kth-largest-element-in-a-stream","E"],[1046,"Last Stone Weight","last-stone-weight","E"],[215,"Kth Largest Element in an Array","kth-largest-element-in-an-array","M",1],[973,"K Closest Points to Origin","k-closest-points-to-origin","M"],[621,"Task Scheduler","task-scheduler","M"]]],
+ ["Graphs (BFS / DFS)",[[200,"Number of Islands","number-of-islands","M",1],[133,"Clone Graph","clone-graph","M"],[695,"Max Area of Island","max-area-of-island","M"],[994,"Rotting Oranges","rotting-oranges","M",1],[417,"Pacific Atlantic Water Flow","pacific-atlantic-water-flow","M"],[207,"Course Schedule","course-schedule","M",1],[210,"Course Schedule II","course-schedule-ii","M"],[547,"Number of Provinces","number-of-provinces","M"]]],
+ ["Intervals",[[56,"Merge Intervals","merge-intervals","M",1],[57,"Insert Interval","insert-interval","M"],[435,"Non-overlapping Intervals","non-overlapping-intervals","M"]]],
+ ["Backtracking",[[78,"Subsets","subsets","M",1],[46,"Permutations","permutations","M"],[39,"Combination Sum","combination-sum","M"],[79,"Word Search","word-search","M"]]],
+ ["Dynamic Programming",[[70,"Climbing Stairs","climbing-stairs","E",1],[198,"House Robber","house-robber","M",1],[322,"Coin Change","coin-change","M",1],[300,"Longest Increasing Subsequence","longest-increasing-subsequence","M"],[139,"Word Break","word-break","M"],[62,"Unique Paths","unique-paths","M"],[1143,"Longest Common Subsequence","longest-common-subsequence","M"]]],
+ ["Greedy",[[53,"Maximum Subarray","maximum-subarray","M",1],[55,"Jump Game","jump-game","M"]]],
+ ["Bit Manipulation",[[191,"Number of 1 Bits","number-of-1-bits","E",1],[338,"Counting Bits","counting-bits","E"],[268,"Missing Number","missing-number","E"],[190,"Reverse Bits","reverse-bits","E"]]]
+];
+const PATS=BANK.map(b=>b[0]);
+const PROB={};
+BANK.forEach(([p,list])=>list.forEach(([n,t,s,d,c])=>PROB[n]={n,t,s,d,core:!!c,p}));
+const TOTAL=Object.keys(PROB).length;
+const DIFF={E:"Easy",M:"Medium",H:"Hard"};
+const RANK={E:0,M:1,H:2};
+// New-problem order: core first, round-robin across patterns (easy before medium), then the rest the same way.
+function roundRobin(core){
+  const lists=BANK.map(([p,l])=>l.filter(x=>!!x[4]===core).map(x=>x[0]).sort((a,b)=>RANK[PROB[a].d]-RANK[PROB[b].d]));
+  const out=[];let i=0;
+  while(lists.some(l=>l.length)){const l=lists[i%lists.length];if(l.length)out.push(l.shift());i++}
+  return out;
+}
+const ORDER=[...roundRobin(true),...roundRobin(false)];
+const INT=[1,3,7,14,30,60];
+const RES={cold:"Solved cold",hint:"Needed hints",fail:"Couldn't solve"};
+
+// ---------- dates ----------
+const pad=n=>String(n).padStart(2,"0");
+const fmt=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today=()=>fmt(new Date());
+function addDays(s,k){const [y,m,d]=s.split("-").map(Number);return fmt(new Date(y,m-1,d+k))}
+function pretty(s,opt){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,opt||{weekday:"short",month:"short",day:"numeric"})}
+
+// ---------- state ----------
+const LKEY="lc-daily-grind-v1";
+const blank=()=>({v:1,goal:5,cards:{},attempts:[],days:{},importDone:false,updated:0});
+let state=blank();
+try{const s=JSON.parse(localStorage.getItem(LKEY)||"null");if(s&&s.v===1){state=Object.assign(blank(),s)}}catch(e){}
+const guesses={};      // n -> pattern guess (in-memory until rated)
+const revealed=new Set();
+let timer=null;        // {n,start}
+try{timer=JSON.parse(localStorage.getItem("lc-grind-timer")||"null")}catch(e){}
+
+// ---------- storage ----------
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify(state))}catch(e){toast("Couldn't save. Is private browsing on?")}}
+function save(){state.updated=Date.now();saveLocal()}
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,1)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="grind-backup-"+today()+".json";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||d.v!==1||!d.cards)throw 0;state=Object.assign(blank(),d);setTimer(null);ensureDay();saveLocal();render();toast("Backup restored.")}catch(e){toast("That file isn't a Daily Grind backup.")}};
+  r.readAsText(file);
+}
+// ---------- queue logic ----------
+function dueList(day){
+  return Object.entries(state.cards).filter(([n,c])=>c.due<=day).sort((a,b)=>a[1].due.localeCompare(b[1].due)||a[1].box-b[1].box).map(([n])=>+n);
+}
+function nextNew(exclude){return ORDER.find(n=>!state.cards[n]&&!exclude.includes(n))}
+function buildDay(day){
+  const due=dueList(day);
+  const q=[...due];
+  let need=Math.max(0,state.goal-due.length);
+  while(need-->0){const n=nextNew(q);if(n==null)break;q.push(n)}
+  state.days[day]={q,done:[]};
+}
+function ensureDay(){
+  const d=today();
+  if(!state.days[d]){buildDay(d);save()}
+}
+
+// ---------- actions ----------
+function rate(n,r){
+  const d=today(),day=state.days[d];
+  const c=state.cards[n]||{box:0,tries:0};
+  let gap;
+  if(r==="cold"){c.box=Math.min(c.box+1,5);gap=INT[c.box]}
+  else if(r==="hint"){c.box=Math.max(c.box-1,0);gap=2}
+  else{c.box=0;gap=1}
+  c.tries=(c.tries||0)+1;c.last=r;c.due=addDays(d,gap);
+  state.cards[n]=c;
+  const m=timer&&timer.n===n?Math.max(1,Math.round((Date.now()-timer.start)/60000)):null;
+  const g=guesses[n]||null;
+  state.attempts.push({n,d,r,m,g});
+  if(state.attempts.length>1500)state.attempts=state.attempts.slice(-1500);
+  if(!day.q.includes(n))day.q.push(n);
+  if(!day.done.includes(n))day.done.push(n);
+  if(timer&&timer.n===n)setTimer(null);
+  delete guesses[n];
+  save();render();
+  let msg=RES[r]+". Back "+pretty(c.due)+".";
+  if(g&&g!=="unsure")msg+=g===PROB[n].p?" Pattern call was right.":" It was "+PROB[n].p+".";
+  toast(msg);
+}
+function setTimer(t){timer=t;try{localStorage.setItem("lc-grind-timer",JSON.stringify(t))}catch(e){}}
+function addNew(){
+  const day=state.days[today()];const n=nextNew(day.q);
+  if(n==null){toast("You've started every problem in the bank.");return}
+  day.q.push(n);save();render();
+}
+function addReview(){
+  const day=state.days[today()];
+  const pool=Object.entries(state.cards).filter(([n])=>!day.q.includes(+n));
+  if(!pool.length){toast("Nothing to review yet. Solve a few first.");return}
+  pool.sort((a,b)=>a[1].box-b[1].box);
+  const low=pool.filter(p=>p[1].box===pool[0][1].box);
+  const pick=+low[Math.floor(Math.random()*low.length)][0];
+  day.q.push(pick);save();render();
+}
+function importYesterday(){
+  const d0="2026-10-28";
+  const items=[[49,"cold",9],[167,"cold",8],[347,"hint",9],[200,"fail",null]];
+  items.forEach(([n,r,m])=>{
+    const c={box:0,tries:1,last:r};
+    if(r==="cold"){c.box=1;c.due=addDays(d0,INT[1])}
+    else if(r==="hint"){c.due=addDays(d0,2)}
+    else{c.due=addDays(d0,1)}
+    state.cards[n]=c;state.attempts.push({n,d:d0,r,m,g:null});
+  });
+  state.days[d0]={q:items.map(i=>i[0]),done:items.map(i=>i[0])};
+  state.importDone=true;
+  const t=today();
+  if(state.days[t]&&!state.days[t].done.length)buildDay(t);
+  save();render();toast("Added. Number of Islands is due today.");
+}
+
+// ---------- stats ----------
+function streak(){
+  let s=0,d=today();
+  const met=x=>(state.days[x]&&state.days[x].done.length>=Math.min(state.goal,state.days[x].q.length||state.goal));
+  if(!met(d))d=addDays(d,-1);
+  while(state.days[d]&&state.days[d].done.length&&met(d)){s++;d=addDays(d,-1)}
+  return s;
+}
+
+// ---------- render ----------
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const mmss=ms=>{const s=Math.floor(ms/1000);return pad(Math.floor(s/60))+":"+pad(s%60)};
+function render(){
+  const d=today(),day=state.days[d];
+  $("date").textContent=pretty(d,{weekday:"long",month:"long",day:"numeric"});
+  const doneN=day.done.length,goalN=Math.max(state.goal,0);
+  $("sToday").textContent=doneN+"/"+Math.max(goalN,day.q.length);
+  $("todayBar").style.width=Math.min(100,doneN/Math.max(1,Math.max(goalN,day.q.length))*100)+"%";
+  $("sStreak").textContent=streak();
+  const mast=Object.values(state.cards).filter(c=>c.box>=3).length;
+  $("sMast").textContent=mast+"/"+TOTAL;
+  const called=state.attempts.filter(a=>a.g&&a.g!=="unsure");
+  $("sRec").textContent=called.length?Math.round(called.filter(a=>a.g===PROB[a.n].p).length/called.length*100)+"%":"–";
+  $("goal").value=state.goal;
+
+  // banner
+  $("banner").innerHTML=(!state.importDone&&!state.attempts.length)?`<div class="banner">
+    <p><b>Add what you did on Oct 28?</b> This puts these on your review schedule:</p>
+    <ul><li>Group Anagrams and Two Sum II: solved cold</li><li>Top K Frequent: needed hints (redo it with bucket sort)</li><li>Number of Islands: couldn't solve (due today)</li></ul>
+    <div class="row"><button class="btn primary" id="impYes" type="button">Add them</button><button class="btn ghost" id="impNo" type="button">Skip</button></div></div>`:"";
+
+  // queue
+  const pending=day.q.filter(n=>!day.done.includes(n));
+  const q=$("queue");
+  if(!pending.length){
+    q.innerHTML=`<div class="alldone"><p><b>Done for today.</b> ${doneN} problem${doneN===1?"":"s"} finished.</p><p class="muted">Want more? Add a new problem or a random review below. Otherwise, rest. It counts.</p></div>`;
+  }else{
+    q.innerHTML=pending.map(n=>{
+      const p=PROB[n],c=state.cards[n],isRev=!!c,live=timer&&timer.n===n,show=revealed.has(n);
+      const chip=isRev?`<span class="chip rev">Review · last: ${RES[c.last].toLowerCase()}</span>`:`<span class="chip new">New</span>`;
+      const opts=`<option value="">Pick before you code…</option>`+PATS.map(x=>`<option value="${esc(x)}"${guesses[n]===x?" selected":""}>${esc(x)}</option>`).join("")+`<option value="unsure"${guesses[n]==="unsure"?" selected":""}>No idea yet</option>`;
+      return `<article class="card${live?" live":""}" data-n="${n}">
+        <div class="ctop">${chip}<span class="timer" id="t-${n}">${live?mmss(Date.now()-timer.start):"00:00"}</span></div>
+        <a class="title" href="https://leetcode.com/problems/${p.s}/" target="_blank" rel="noopener" data-act="open"><span class="num">${n}</span>${esc(p.t)}</a>
+        <div class="patline">${show?`<span>${esc(p.p)} · ${DIFF[p.d]}</span>`:`<span class="hidden-pat">Pattern hidden</span><button class="linkbtn" type="button" data-act="reveal">Show it</button>`}</div>
+        <label class="guess" for="g-${n}">Your call on the pattern<select id="g-${n}" data-act="guess">${opts}</select></label>
+        <div class="row">${live?`<button class="btn" type="button" data-act="stop">Stop timer</button>`:`<a class="btn primary" href="https://leetcode.com/problems/${p.s}/" target="_blank" rel="noopener" data-act="start">Open &amp; start timer</a>`}</div>
+        <div class="rate">
+          <button class="btn good" type="button" data-act="cold">Solved cold</button>
+          <button class="btn warn" type="button" data-act="hint">Needed hints</button>
+          <button class="btn bad" type="button" data-act="fail">Couldn't solve</button>
+        </div>
+        ${isRev?"":`<p class="hint">Say the approach and Big-O out loud before you type anything.</p>`}
+      </article>`}).join("");
+  }
+
+  // done today
+  $("doneSec").hidden=!doneN;
+  $("doneList").innerHTML=day.done.slice().reverse().map(n=>{
+    const a=[...state.attempts].reverse().find(x=>x.n===n&&x.d===d),c=state.cards[n];
+    const g=a&&a.g&&a.g!=="unsure"?(a.g===PROB[n].p?` · <span class="ok">pattern ✓</span>`:` · <span class="no">pattern ✗</span>`):"";
+    return `<div class="done"><span class="res ${a?a.r:""}">${a?RES[a.r]:""}</span><span class="t"><span class="mono muted">${n}</span> ${esc(PROB[n].t)}</span><span class="muted" style="font-size:.82rem">${a&&a.m?a.m+" min · ":""}back ${pretty(c.due,{month:"short",day:"numeric"})}${g}</span></div>`}).join("");
+
+  // forecast
+  const days=[...Array(7)].map((_,i)=>addDays(d,i+1));
+  const counts=days.map(x=>Object.values(state.cards).filter(c=>c.due===x).length);
+  const mx=Math.max(1,...counts);
+  $("forecast").innerHTML=days.map((x,i)=>`<div><span class="v">${counts[i]}</span><span class="b${counts[i]?"":" zero"}" style="height:${counts[i]?Math.max(6,counts[i]/mx*56):2}px"></span><small>${pretty(x,{weekday:"short"})}</small></div>`).join("");
+
+  // patterns
+  $("pats").innerHTML=BANK.map(([p,l])=>{
+    const tot=l.length,m=l.filter(x=>state.cards[x[0]]&&state.cards[x[0]].box>=3).length,lr=l.filter(x=>state.cards[x[0]]&&state.cards[x[0]].box<3).length;
+    return `<div class="pat"><span>${esc(p)}</span><span class="mono muted">${m+lr}/${tot}</span><div class="stack"><div class="m" style="width:${m/tot*100}%"></div><div class="l" style="width:${lr/tot*100}%"></div></div></div>`}).join("");
+
+  // recent
+  const rec=state.attempts.slice(-10).reverse();
+  $("recent").innerHTML=rec.length?rec.map(a=>`<div class="rec"><span class="res ${a.r}">${RES[a.r]}</span><span class="t">${esc(PROB[a.n].t)}</span><span class="muted mono" style="font-size:.78rem">${pretty(a.d,{month:"short",day:"numeric"})}${a.m?" · "+a.m+"m":""}</span></div>`).join(""):`<p class="muted" style="margin:0">Nothing yet. Your attempts show up here.</p>`;
+}
+
+// ---------- events ----------
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]");
+  if(t){
+    const card=t.closest(".card");const n=card?+card.dataset.n:null;
+    const act=t.dataset.act;
+    if(act==="start"){setTimer({n,start:Date.now()});render()}
+    else if(act==="stop"){setTimer(null);render()}
+    else if(act==="reveal"){revealed.add(n);render()}
+    else if(act==="cold"||act==="hint"||act==="fail")rate(n,act);
+    return;
+  }
+  if(e.target.id==="impYes")importYesterday();
+  if(e.target.id==="impNo"){state.importDone=true;save();render()}
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.act==="guess"){guesses[+t.closest(".card").dataset.n]=t.value||undefined}
+  if(t.id==="goal"){
+    const v=Math.max(1,Math.min(20,parseInt(t.value,10)||5));state.goal=v;
+    const day=state.days[today()];
+    if(day&&!day.done.length){buildDay(today());$("goalNote").textContent="Today's list updated."}
+    else $("goalNote").textContent="Starts tomorrow. Use + New problem for more today.";
+    save();render();
+  }
+});
+$("moreNew").onclick=addNew;
+$("moreRev").onclick=addReview;
+$("reset").onclick=()=>{$("resetConfirm").hidden=false;$("reset").hidden=true};
+$("resetNo").onclick=()=>{$("resetConfirm").hidden=true;$("reset").hidden=false};
+$("resetYes").onclick=()=>{const g=state.goal;state=blank();state.goal=g;state.importDone=true;setTimer(null);ensureDay();save();$("resetConfirm").hidden=true;$("reset").hidden=false;render();toast("Progress erased.")};
+let toastT;function toast(m){const el=$("toast");el.textContent=m;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3500)}
+
+setInterval(()=>{
+  if(timer){const el=document.getElementById("t-"+timer.n);if(el)el.textContent=mmss(Date.now()-timer.start)}
+  if(!state.days[today()]){ensureDay();render()}
+},1000);
+$("exp").onclick=exportData;
+$("imp").onclick=()=>$("impFile").click();
+$("impFile").onchange=e=>{if(e.target.files[0])importData(e.target.files[0]);e.target.value=""};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!state.days[today()]){ensureDay();render()}});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+ensureDay();render();
+</script>
+
+</body>
+</html>
