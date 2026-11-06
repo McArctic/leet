@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache, update it in the background.
-const CACHE = "grind-v1";
+const CACHE = "grind-v4";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-180.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -93,6 +93,9 @@ button{cursor:pointer}
 .rate{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .rate .btn{justify-content:center;text-align:center;padding:10px 6px;font-size:.84rem}
 .hint{font-size:.8rem;color:var(--muted);margin:0}
+.btn.small{padding:6px 10px;font-size:.8rem}
+.pick{display:flex;gap:8px;flex-wrap:wrap}
+.pick select{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:.92rem}
 
 .donelist{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .done{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -175,6 +178,16 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
   </section>
 
   <section class="panel">
+    <h2>Add a specific problem</h2>
+    <div class="pick">
+      <label for="pick" hidden>Problem</label>
+      <select id="pick"></select>
+      <button class="btn" id="pickAdd" type="button">Add to today</button>
+    </div>
+    <p class="hint">Use Swap or Remove on a card to change today's list. Removed problems come back on a later day.</p>
+  </section>
+
+  <section class="panel">
     <h2>Reviews coming up</h2>
     <div class="fc" id="forecast"></div>
   </section>
@@ -193,10 +206,10 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
   <details>
     <summary>How this works</summary>
     <ul>
-      <li>Each day you get your due reviews first, then new problems up to your daily goal.</li>
+      <li>Each day starts with your new problems (4 by default), then due reviews fill the rest of your daily total, weakest first.</li>
       <li>The pattern is hidden. Pick what you think it is before you code. That's the skill interviews test.</li>
-      <li><b>Solved cold</b> means no hints and no peeking. It comes back in 3, then 7, then 14 days. Three cold solves in a row and it counts as locked in.</li>
-      <li><b>Needed hints</b> comes back in 2 days. <b>Couldn't solve</b> comes back tomorrow and resets.</li>
+      <li><b>Solved cold</b> means no hints and no peeking. It comes back in 5, then 12, then 25 days. Three cold solves in a row and it counts as locked in.</li>
+      <li><b>Needed hints</b> comes back in 3 days. <b>Couldn't solve</b> comes back tomorrow and resets.</li>
       <li>Be honest with the buttons. Rating a peek as "cold" only fools you.</li>
     </ul>
   </details>
@@ -209,6 +222,12 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
         <input id="goal" type="number" min="1" max="20" inputmode="numeric">
         <span class="muted" id="goalNote" style="font-size:.82rem"></span>
       </div>
+      <div class="field">
+        <label for="newPer">New problems per day (at least)</label>
+        <input id="newPer" type="number" min="0" max="20" inputmode="numeric">
+        <span class="muted" id="newNote" style="font-size:.82rem"></span>
+      </div>
+      <p class="hint">Each day gets this many new problems first. Reviews fill the rest of your daily total. Reviews that don't fit move to the next day, weakest first.</p>
       <div class="row">
         <button class="btn" id="exp" type="button">Export backup</button>
         <button class="btn" id="imp" type="button">Import backup</button>
@@ -248,15 +267,16 @@ BANK.forEach(([p,list])=>list.forEach(([n,t,s,d,c])=>PROB[n]={n,t,s,d,core:!!c,p
 const TOTAL=Object.keys(PROB).length;
 const DIFF={E:"Easy",M:"Medium",H:"Hard"};
 const RANK={E:0,M:1,H:2};
-// New-problem order: core first, round-robin across patterns (easy before medium), then the rest the same way.
+// New-problem order: core first, round-robin across patterns, mediums before easies, then the rest the same way.
+const NEWRANK={M:0,H:1,E:2};
 function roundRobin(core){
-  const lists=BANK.map(([p,l])=>l.filter(x=>!!x[4]===core).map(x=>x[0]).sort((a,b)=>RANK[PROB[a].d]-RANK[PROB[b].d]));
+  const lists=BANK.map(([p,l])=>l.filter(x=>!!x[4]===core).map(x=>x[0]).sort((a,b)=>NEWRANK[PROB[a].d]-NEWRANK[PROB[b].d]));
   const out=[];let i=0;
   while(lists.some(l=>l.length)){const l=lists[i%lists.length];if(l.length)out.push(l.shift());i++}
   return out;
 }
 const ORDER=[...roundRobin(true),...roundRobin(false)];
-const INT=[1,3,7,14,30,60];
+const INT=[1,5,12,25,45,90];
 const RES={cold:"Solved cold",hint:"Needed hints",fail:"Couldn't solve"};
 
 // ---------- dates ----------
@@ -268,7 +288,7 @@ function pretty(s,opt){const [y,m,d]=s.split("-").map(Number);return new Date(y,
 
 // ---------- state ----------
 const LKEY="lc-daily-grind-v1";
-const blank=()=>({v:1,goal:5,cards:{},attempts:[],days:{},importDone:false,updated:0});
+const blank=()=>({v:1,goal:6,minNew:4,cards:{},attempts:[],days:{},importDone:false,updated:0});
 let state=blank();
 try{const s=JSON.parse(localStorage.getItem(LKEY)||"null");if(s&&s.v===1){state=Object.assign(blank(),s)}}catch(e){}
 const guesses={};      // n -> pattern guess (in-memory until rated)
@@ -290,17 +310,26 @@ function importData(file){
   r.readAsText(file);
 }
 // ---------- queue logic ----------
+// Due reviews, weakest first (failed before hinted before cold), then oldest.
 function dueList(day){
-  return Object.entries(state.cards).filter(([n,c])=>c.due<=day).sort((a,b)=>a[1].due.localeCompare(b[1].due)||a[1].box-b[1].box).map(([n])=>+n);
+  return Object.entries(state.cards).filter(([n,c])=>c.due<=day).sort((a,b)=>a[1].box-b[1].box||a[1].due.localeCompare(b[1].due)).map(([n])=>+n);
 }
+const minNew=()=>Math.min(state.minNew??4,state.goal);
 function nextNew(exclude){return ORDER.find(n=>!state.cards[n]&&!exclude.includes(n))}
 function buildDay(day){
   const due=dueList(day);
-  const q=[...due];
-  let need=Math.max(0,state.goal-due.length);
-  while(need-->0){const n=nextNew(q);if(n==null)break;q.push(n)}
-  state.days[day]={q,done:[]};
+  const q=[];
+  // 1) guaranteed new problems
+  for(let k=0;k<minNew();k++){const n=nextNew(q);if(n==null)break;q.push(n)}
+  // 2) reviews fill the rest, weakest first; the overflow waits for tomorrow
+  const room=Math.max(0,state.goal-q.length);
+  const revs=due.slice(0,room);
+  // 3) if there weren't enough reviews, top up with more new problems
+  let extra=state.goal-q.length-revs.length;
+  while(extra-->0){const n=nextNew(q);if(n==null)break;q.push(n)}
+  state.days[day]={q:[...revs,...q],done:[]};
 }
+function backlog(){const d=today(),day=state.days[d];return dueList(d).filter(n=>!day.q.includes(n)).length}
 function ensureDay(){
   const d=today();
   if(!state.days[d]){buildDay(d);save()}
@@ -312,7 +341,7 @@ function rate(n,r){
   const c=state.cards[n]||{box:0,tries:0};
   let gap;
   if(r==="cold"){c.box=Math.min(c.box+1,5);gap=INT[c.box]}
-  else if(r==="hint"){c.box=Math.max(c.box-1,0);gap=2}
+  else if(r==="hint"){c.box=Math.max(c.box-1,0);gap=3}
   else{c.box=0;gap=1}
   c.tries=(c.tries||0)+1;c.last=r;c.due=addDays(d,gap);
   state.cards[n]=c;
@@ -330,13 +359,38 @@ function rate(n,r){
   toast(msg);
 }
 function setTimer(t){timer=t;try{localStorage.setItem("lc-grind-timer",JSON.stringify(t))}catch(e){}}
+function excluded(day){return [...day.q,...(day.removed||[])]}
+function dropTimer(n){if(timer&&timer.n===n)setTimer(null);delete guesses[n];revealed.delete(n)}
+function removeToday(n){
+  const day=state.days[today()];
+  day.q=day.q.filter(x=>x!==n);
+  day.removed=day.removed||[];if(!day.removed.includes(n))day.removed.push(n);
+  dropTimer(n);save();render();toast("Removed from today.");
+}
+function swapToday(n){
+  const day=state.days[today()];
+  const m=nextNew(excluded(day));
+  if(m==null){toast("No new problems left to swap in.");return}
+  day.q[day.q.indexOf(n)]=m;
+  day.removed=day.removed||[];if(!day.removed.includes(n))day.removed.push(n);
+  dropTimer(n);save();render();toast("Swapped in "+PROB[m].t+".");
+}
+function addSpecific(n){
+  const day=state.days[today()];
+  if(!n||day.q.includes(n))return;
+  day.q.push(n);
+  if(day.removed)day.removed=day.removed.filter(x=>x!==n);
+  save();render();toast("Added "+PROB[n].t+".");
+}
 function addNew(){
-  const day=state.days[today()];const n=nextNew(day.q);
+  const day=state.days[today()];const n=nextNew(excluded(day));
   if(n==null){toast("You've started every problem in the bank.");return}
   day.q.push(n);save();render();
 }
 function addReview(){
   const day=state.days[today()];
+  const waiting=dueList(today()).filter(n=>!day.q.includes(n));
+  if(waiting.length){day.q.push(waiting[0]);save();render();return}
   const pool=Object.entries(state.cards).filter(([n])=>!day.q.includes(+n));
   if(!pool.length){toast("Nothing to review yet. Solve a few first.");return}
   pool.sort((a,b)=>a[1].box-b[1].box);
@@ -386,6 +440,9 @@ function render(){
   const called=state.attempts.filter(a=>a.g&&a.g!=="unsure");
   $("sRec").textContent=called.length?Math.round(called.filter(a=>a.g===PROB[a.n].p).length/called.length*100)+"%":"–";
   $("goal").value=state.goal;
+  $("newPer").value=minNew();
+  const bl=backlog();
+  $("moreRev").textContent=bl?`+ Review (${bl} waiting)`:"+ Random review";
 
   // banner
   $("banner").innerHTML=(!state.importDone&&!state.attempts.length)?`<div class="banner">
@@ -408,7 +465,7 @@ function render(){
         <a class="title" href="https://leetcode.com/problems/${p.s}/" target="_blank" rel="noopener" data-act="open"><span class="num">${n}</span>${esc(p.t)}</a>
         <div class="patline">${show?`<span>${esc(p.p)} · ${DIFF[p.d]}</span>`:`<span class="hidden-pat">Pattern hidden</span><button class="linkbtn" type="button" data-act="reveal">Show it</button>`}</div>
         <label class="guess" for="g-${n}">Your call on the pattern<select id="g-${n}" data-act="guess">${opts}</select></label>
-        <div class="row">${live?`<button class="btn" type="button" data-act="stop">Stop timer</button>`:`<a class="btn primary" href="https://leetcode.com/problems/${p.s}/" target="_blank" rel="noopener" data-act="start">Open &amp; start timer</a>`}</div>
+        <div class="row">${live?`<button class="btn" type="button" data-act="stop">Stop timer</button>`:`<a class="btn primary" href="https://leetcode.com/problems/${p.s}/" target="_blank" rel="noopener" data-act="start">Open &amp; start timer</a>`}<button class="btn ghost small" type="button" data-act="swap">Swap</button><button class="btn ghost small" type="button" data-act="remove">Remove</button></div>
         <div class="rate">
           <button class="btn good" type="button" data-act="cold">Solved cold</button>
           <button class="btn warn" type="button" data-act="hint">Needed hints</button>
@@ -424,6 +481,14 @@ function render(){
     const a=[...state.attempts].reverse().find(x=>x.n===n&&x.d===d),c=state.cards[n];
     const g=a&&a.g&&a.g!=="unsure"?(a.g===PROB[n].p?` · <span class="ok">pattern ✓</span>`:` · <span class="no">pattern ✗</span>`):"";
     return `<div class="done"><span class="res ${a?a.r:""}">${a?RES[a.r]:""}</span><span class="t"><span class="mono muted">${n}</span> ${esc(PROB[n].t)}</span><span class="muted" style="font-size:.82rem">${a&&a.m?a.m+" min · ":""}back ${pretty(c.due,{month:"short",day:"numeric"})}${g}</span></div>`}).join("");
+
+  // picker
+  const pk=$("pick"),keep=pk.value;
+  pk.innerHTML=`<option value="">Choose a problem…</option>`+BANK.map(([p,l])=>`<optgroup label="${esc(p)}">`+l.map(x=>{
+    const n=x[0],c=state.cards[n],inQ=day.q.includes(n);
+    const st=inQ?"in today's list":!c?"new":c.box>=3?"locked in":"review "+pretty(c.due,{month:"short",day:"numeric"});
+    return `<option value="${n}"${inQ?" disabled":""}>${n}. ${esc(PROB[n].t)} (${st})</option>`}).join("")+`</optgroup>`).join("");
+  if(keep&&!day.q.includes(+keep))pk.value=keep;
 
   // forecast
   const days=[...Array(7)].map((_,i)=>addDays(d,i+1));
@@ -450,6 +515,8 @@ document.addEventListener("click",e=>{
     if(act==="start"){setTimer({n,start:Date.now()});render()}
     else if(act==="stop"){setTimer(null);render()}
     else if(act==="reveal"){revealed.add(n);render()}
+    else if(act==="swap")swapToday(n);
+    else if(act==="remove")removeToday(n);
     else if(act==="cold"||act==="hint"||act==="fail")rate(n,act);
     return;
   }
@@ -466,8 +533,17 @@ document.addEventListener("change",e=>{
     else $("goalNote").textContent="Starts tomorrow. Use + New problem for more today.";
     save();render();
   }
+  if(t.id==="newPer"){
+    const v=Math.max(0,Math.min(20,parseInt(t.value,10)));state.minNew=isNaN(v)?4:v;
+    if(state.minNew>state.goal){state.goal=state.minNew}
+    const day=state.days[today()];
+    if(day&&!day.done.length){buildDay(today());$("newNote").textContent="Today's list updated."}
+    else $("newNote").textContent="Starts tomorrow. Use + New problem for more today.";
+    save();render();
+  }
 });
 $("moreNew").onclick=addNew;
+$("pickAdd").onclick=()=>{const v=+$("pick").value;if(v)addSpecific(v);else toast("Pick a problem first.")};
 $("moreRev").onclick=addReview;
 $("reset").onclick=()=>{$("resetConfirm").hidden=false;$("reset").hidden=true};
 $("resetNo").onclick=()=>{$("resetConfirm").hidden=true;$("reset").hidden=false};

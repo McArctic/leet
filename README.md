@@ -17,6 +17,13 @@ Installs on your phone like an app, works offline, and saves progress on the dev
 
 It opens full-screen with its own icon and works without internet.
 
+## Changing today's list
+
+- **Swap** on a card replaces it with the next new problem.
+- **Remove** takes it off today's list. It comes back on a later day.
+- **Add a specific problem** lets you pick any problem from the bank and add it to today.
+- **Settings → Problems per day** sets your daily total. **New problems per day** guarantees that many new ones before reviews fill the rest. Reviews that don't fit wait for the next day, weakest first.
+
 ## Where your progress lives
 
 Progress is saved in that browser on that device. Your phone and laptop keep separate progress.
