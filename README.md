@@ -24,6 +24,12 @@ It opens full-screen with its own icon and works without internet.
 - **Add a specific problem** lets you pick any problem from the bank and add it to today.
 - **Settings → Problems per day** sets your daily total. **New problems per day** guarantees that many new ones before reviews fill the rest. Reviews that don't fit wait for the next day, weakest first.
 
+## Concepts mode
+
+Tap **Concepts** at the top for random interview flashcards on C, C++, embedded systems, and OS/concurrency.
+Answer out loud, reveal, then mark **Knew it** or **Missed it**. Missed cards come up more often, and
+**Missed only** drills just those. Add or edit cards in `concepts.js`.
+
 ## Where your progress lives
 
 Progress is saved in that browser on that device. Your phone and laptop keep separate progress.

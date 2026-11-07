@@ -31,8 +31,10 @@
   --accent:#7b9bf2; --accent-ink:#0f131a; --accent-soft:#1f2a45;
   --good:#5cc690; --good-soft:#163325; --warn:#e8a94e; --warn-soft:#3a2a12; --bad:#f08077; --bad-soft:#3d1c1a; color-scheme:dark}
 html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
 *{box-sizing:border-box}
 body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap>*,#viewProblems>*,#viewConcepts>*{min-width:0}
 .wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;display:grid;gap:22px}
 h1{font-size:1.5rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
 h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px;font-weight:600}
@@ -95,7 +97,7 @@ button{cursor:pointer}
 .hint{font-size:.8rem;color:var(--muted);margin:0}
 .btn.small{padding:6px 10px;font-size:.8rem}
 .pick{display:flex;gap:8px;flex-wrap:wrap}
-.pick select{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:.92rem}
+.pick select{flex:1 1 220px;min-width:0;width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:.92rem}
 
 .donelist{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .done{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -135,7 +137,19 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
 .field{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .field input{width:5em;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:.88rem;z-index:20;max-width:calc(100% - 32px)}
-@media (max-width:420px){.rate{grid-template-columns:1fr}}
+.tabs{display:flex;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:7px;padding:8px 10px;font-weight:600;font-size:.9rem;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font-size:.82rem}
+.chips button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.cq{font-size:1.1rem;font-weight:600;margin:0;line-height:1.45;text-wrap:pretty}
+.cans{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.cans p{margin:0;line-height:1.6}
+.cans pre{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:.84rem;line-height:1.5}
+.rate.two{grid-template-columns:repeat(2,1fr)}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted)}
+@media (max-width:420px){.rate{grid-template-columns:1fr}.rate.two{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){.bar>div{transition:none}}
 </style>
 </head>
@@ -151,6 +165,11 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
       </div>
       <div class="sync on" id="sync"><i></i><span>Saved on this device</span></div>
     </div>
+    <nav class="tabs" aria-label="Mode">
+      <button type="button" id="tabProblems" aria-pressed="true">Problems</button>
+      <button type="button" id="tabConcepts" aria-pressed="false">Concepts</button>
+    </nav>
+    <div id="probHead" style="display:grid;gap:12px">
     <div class="summary">
       <div class="pill"><b id="sToday">0/5</b><span>done today</span></div>
       <div class="pill"><b id="sStreak">0</b><span>day streak</span></div>
@@ -158,8 +177,10 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
       <div class="pill"><b id="sRec">–</b><span>pattern calls right</span></div>
     </div>
     <div class="bar"><div id="todayBar" style="width:0"></div></div>
+    </div>
   </header>
 
+  <div id="viewProblems" style="display:grid;gap:22px">
   <div id="banner"></div>
 
   <section>
@@ -213,6 +234,40 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
       <li>Be honest with the buttons. Rating a peek as "cold" only fools you.</li>
     </ul>
   </details>
+  </div>
+
+  <div id="viewConcepts" style="display:grid;gap:16px" hidden>
+    <section class="panel">
+      <h2>Interview concepts</h2>
+      <div class="chips" id="cChips"></div>
+      <div class="row" style="justify-content:space-between">
+        <span class="muted" id="cStats" style="font-size:.85rem"></span>
+        <label class="check" for="cMissed"><input type="checkbox" id="cMissed"> Missed only</label>
+      </div>
+    </section>
+    <article class="card" id="cCard">
+      <div class="ctop"><span class="chip new" id="cCat"></span><span class="muted mono" id="cSeen" style="font-size:.78rem"></span></div>
+      <p class="cq" id="cQ"></p>
+      <p class="hint" id="cHint">Answer out loud first, like you would on the call. Then reveal.</p>
+      <div class="cans" id="cAns" hidden>
+        <p id="cA"></p>
+        <pre id="cCode" hidden></pre>
+      </div>
+      <div class="row" id="cRevealRow">
+        <button class="btn primary" id="cReveal" type="button">Show answer</button>
+        <button class="btn ghost" id="cSkip" type="button">Skip</button>
+      </div>
+      <div class="rate two" id="cRateRow" hidden>
+        <button class="btn good" id="cGot" type="button">Knew it</button>
+        <button class="btn bad" id="cMiss" type="button">Missed it</button>
+      </div>
+    </article>
+    <section class="panel">
+      <h2>Progress by topic</h2>
+      <div class="legend"><span><i style="background:var(--good)"></i>Knew it last time</span><span><i style="background:var(--bad)"></i>Missed last time</span><span><i style="background:var(--line)"></i>Not seen</span></div>
+      <div class="pats" id="cProg"></div>
+    </section>
+  </div>
 
   <details>
     <summary>Settings</summary>
@@ -243,6 +298,7 @@ details ul{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:.9re
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="concepts.js"></script>
 <script>
 // ---------- problem bank ----------
 const BANK=[
@@ -288,7 +344,7 @@ function pretty(s,opt){const [y,m,d]=s.split("-").map(Number);return new Date(y,
 
 // ---------- state ----------
 const LKEY="lc-daily-grind-v1";
-const blank=()=>({v:1,goal:6,minNew:4,cards:{},attempts:[],days:{},importDone:false,updated:0});
+const blank=()=>({v:1,goal:6,minNew:4,cards:{},concepts:{},attempts:[],days:{},importDone:false,updated:0});
 let state=blank();
 try{const s=JSON.parse(localStorage.getItem(LKEY)||"null");if(s&&s.v===1){state=Object.assign(blank(),s)}}catch(e){}
 const guesses={};      // n -> pattern guess (in-memory until rated)
@@ -561,7 +617,81 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!state.da
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
+// ---------- concepts ----------
+const CONS=window.CONCEPTS||[];
+const CCATS=["All",...new Set(CONS.map(c=>c.cat))];
+let cFilter="All",cMissedOnly=false,cCur=null,cRecent=[],cShown=false;
+const cs=()=>(state.concepts=state.concepts||{});
+function cPool(){
+  let p=CONS.filter(c=>cFilter==="All"||c.cat===cFilter);
+  if(cMissedOnly)p=p.filter(c=>cs()[c.id]&&cs()[c.id].last==="miss");
+  return p;
+}
+function cWeight(c){const s=cs()[c.id];if(!s)return 3;if(s.last==="miss")return 6;return 1/(1+s.got)}
+function cNext(){
+  const pool=cPool();
+  if(!pool.length){cCur=null;cShown=false;renderC();return}
+  let cand=pool.filter(c=>!cRecent.includes(c.id));
+  if(!cand.length)cand=pool;
+  const tot=cand.reduce((a,c)=>a+cWeight(c),0);
+  let r=Math.random()*tot,pick=cand[cand.length-1];
+  for(const c of cand){r-=cWeight(c);if(r<=0){pick=c;break}}
+  cCur=pick;cShown=false;
+  cRecent.push(pick.id);
+  const keep=Math.max(1,Math.min(10,Math.floor(pool.length/2)));
+  while(cRecent.length>keep)cRecent.shift();
+  renderC();
+}
+function cRate(ok){
+  if(!cCur)return;
+  const s=cs()[cCur.id]||{got:0,miss:0};
+  if(ok)s.got++;else s.miss++;
+  s.last=ok?"got":"miss";cs()[cCur.id]=s;
+  save();cNext();
+}
+function renderC(){
+  $("cChips").innerHTML=CCATS.map(c=>`<button type="button" data-cat="${esc(c)}" aria-pressed="${c===cFilter}">${esc(c)}</button>`).join("");
+  const seen=CONS.filter(c=>cs()[c.id]).length,missed=CONS.filter(c=>cs()[c.id]&&cs()[c.id].last==="miss").length;
+  $("cStats").textContent=`${seen}/${CONS.length} seen · ${missed} to retry`;
+  $("cMissed").checked=cMissedOnly;
+  const card=$("cCard");
+  if(!cCur){
+    $("cCat").textContent="";$("cSeen").textContent="";
+    $("cQ").textContent=cMissedOnly?"Nothing to retry here. Every card you've seen, you knew last time.":"No cards in this topic.";
+    $("cHint").hidden=true;$("cAns").hidden=true;$("cRevealRow").hidden=true;$("cRateRow").hidden=true;
+  }else{
+    const s=cs()[cCur.id];
+    $("cCat").textContent=cCur.cat;
+    $("cSeen").textContent=s?`seen ${s.got+s.miss}× · last: ${s.last==="got"?"knew it":"missed"}`:"new";
+    $("cQ").textContent=cCur.q;
+    $("cA").textContent=cCur.a;
+    $("cCode").textContent=cCur.code||"";$("cCode").hidden=!cCur.code;
+    $("cHint").hidden=cShown;$("cAns").hidden=!cShown;
+    $("cRevealRow").hidden=cShown;$("cRateRow").hidden=!cShown;
+  }
+  $("cProg").innerHTML=CCATS.slice(1).map(cat=>{
+    const l=CONS.filter(c=>c.cat===cat),tot=l.length;
+    const g=l.filter(c=>cs()[c.id]&&cs()[c.id].last==="got").length,m=l.filter(c=>cs()[c.id]&&cs()[c.id].last==="miss").length;
+    return `<div class="pat"><span>${esc(cat)}</span><span class="mono muted">${g}/${tot} known</span><div class="stack"><div class="m" style="width:${g/tot*100}%"></div><div style="width:${m/tot*100}%;background:var(--bad)"></div></div></div>`}).join("");
+}
+function setView(v){
+  const c=v==="concepts";
+  $("viewProblems").hidden=c;$("probHead").hidden=c;$("viewConcepts").hidden=!c;
+  $("tabProblems").setAttribute("aria-pressed",String(!c));$("tabConcepts").setAttribute("aria-pressed",String(c));
+  try{localStorage.setItem("lc-grind-view",v)}catch(e){}
+  if(c){if(!cCur)cNext();else renderC()}
+}
+$("tabProblems").onclick=()=>setView("problems");
+$("tabConcepts").onclick=()=>setView("concepts");
+$("cChips").addEventListener("click",e=>{const b=e.target.closest("[data-cat]");if(!b)return;cFilter=b.dataset.cat;cRecent=[];cNext()});
+$("cMissed").onchange=e=>{cMissedOnly=e.target.checked;cRecent=[];cNext()};
+$("cReveal").onclick=()=>{cShown=true;renderC()};
+$("cSkip").onclick=()=>cNext();
+$("cGot").onclick=()=>cRate(true);
+$("cMiss").onclick=()=>cRate(false);
+
 ensureDay();render();
+try{if(localStorage.getItem("lc-grind-view")==="concepts")setView("concepts")}catch(e){}
 </script>
 
 </body>
